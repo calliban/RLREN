@@ -26,14 +26,6 @@ class CAPPI(object):
         # Validate the city name
         self.city = get_city(city)
 
-        new_latitude = lambda l: round((l - self.city.lat_min) * self.city.shape[0] / (
-            self.city.lat_max - self.city.lat_min)) if self.city.lat_min <= l < self.city.lat_max else -1
-
-        new_longitude = lambda l: round((l - self.city.lon_min) * self.city.shape[1] / (
-            self.city.lon_max - self.city.lon_min)) if self.city.lon_min <= l < self.city.lon_max else -1
-
-        self.remap = lambda lat, lon: (new_latitude(lat), new_longitude(lon))
-
         lat_line = np.linspace(start=self.city.lat_min, stop=self.city.lat_max, num=self.side)
 
         lon_line = np.linspace(start=self.city.lon_min, stop=self.city.lon_max, num=self.side)
@@ -45,6 +37,22 @@ class CAPPI(object):
         self.y_lower_right, self.x_lower_right = self.city.box_lr
         self.data_size = self.x_size * self.y_size * 4  # Binary size for float data radar matrix
 
+    def remap(self, latitude: float, longitude: float) -> list:
+        """
+        Remap a tuple (latitude, longitude) to (i, j) coordinates
+
+        :param latitude: The latitude of the point
+        :param longitude: The Longitude of the point
+        :return: (i, j)
+        """
+        new_latitude = round((latitude - self.city.lat_min) * self.city.shape[0] / (
+            self.city.lat_max - self.city.lat_min)) if self.city.lat_min <= latitude < self.city.lat_max else -1
+
+        new_longitude = round((longitude - self.city.lon_min) * self.city.shape[1] / (
+            self.city.lon_max - self.city.lon_min)) if self.city.lon_min <= longitude < self.city.lon_max else -1
+
+        return new_latitude, new_longitude
+
     @property
     def file_name(self) -> str:
         """Returns the value of file_name
@@ -53,7 +61,7 @@ class CAPPI(object):
         return self._file_name
 
     @file_name.setter
-    def file_name(self, file_name: spyttr) -> None:
+    def file_name(self, file_name: str) -> None:
         """Sets the value of file_name
         :param file_name:
         """
@@ -71,7 +79,8 @@ class CAPPI(object):
         """
 
         with gzip.open(file_name) as data_file:
-            local_map = np.fromstring(data_file.read(self.data_size), dtype=np.float32).reshape(self.y_size, self.x_size)
+            local_map = np.fromstring(data_file.read(self.data_size),
+                                      dtype=np.float32).reshape(self.y_size, self.x_size)
 
         # Cleanup process and conversion to MMH. This is important
         mask = local_map == local_map[2, 2]
