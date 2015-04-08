@@ -15,11 +15,14 @@ from sensors.cities import get_city
 class CAPPI(object):
     """
     This is the class for working with CAPPI radar files
+
+    :param city: A string for the radar location, such as 'BRU', 'PI', 'PPR', or 'SR'
     """
 
     _file_name = ''
     altitude = "3 km"  # TODO set this to either a float or tuple according to use cases
     side = 200  # Side of the square matrix
+    data = None
 
     def __init__(self, city: str):
 
@@ -39,7 +42,8 @@ class CAPPI(object):
 
     def remap(self, latitude: float, longitude: float) -> list:
         """
-        Remap a tuple (latitude, longitude) to (i, j) coordinates
+        Remap a tuple (latitude, longitude) to a mapping matrix
+        Return (i, j) coordinates
 
         :param latitude: The latitude of the point
         :param longitude: The Longitude of the point
@@ -67,38 +71,69 @@ class CAPPI(object):
         """
         self._file_name = file_name
 
-    def open(self, file_name: str, use_full_map: bool=False, use_zr: bool=True) -> np.ndarray:
+    def open(self, file_name: str='', remove_borders: bool=True, use_zr: bool=True) -> np.ndarray:
         """
         Open a single radar file given it's file_name".
-        The use_full_map image may be obtained using the "use_full_map" parameter.
+        The remove_borders image may be obtained using the "remove_borders" parameter.
 
         :param file_name: The filename for a radar file
-        :param use_full_map: Define whether to use the use_full_map data matrix or just the important part
+        :param remove_borders: Define whether to use the inner-radar matrix or not
         :param use_zr: Use Z-R (mmh-1)  data if true, or dBZ ir false
-        :return local_map: The matrix map
+        :return cappi_map: The matrix map
         """
 
+        if file_name == '':
+            file_name = self._file_name
+
         with gzip.open(file_name) as data_file:
-            local_map = np.fromstring(data_file.read(self.data_size),
-                                      dtype=np.float32).reshape(self.y_size, self.x_size)
+            data_stream = data_file.read(self.data_size)
+            local_map = np.fromstring(data_stream, dtype=np.float32)
+            cappi_map = local_map.reshape(self.y_size, self.x_size)
 
-        # Cleanup process and conversion to MMH. This is important
-        mask = local_map == local_map[2, 2]
-        local_map[mask] = -999
-        if not use_zr:
-            return local_map
-        local_map[-mask] = self.city.zr(local_map[-mask])
+            # TODO Explicit delete - must profile do select the best option
+            del data_stream
+            del local_map
 
-        if use_full_map:
-            return local_map
-        local_map = local_map[self.y_upper_left:self.y_lower_right, self.x_upper_left:self.x_lower_right]
-        local_map = local_map[::self.city.y_direction, ::self.city.x_direction]
-        local_map[local_map < 0] = 0
-        return local_map
+        # Bin data files contain a "transparency" value for most data, which must not be used for processing
+        # data. A simple way to avoid using it is to set it to an invalid dBZ value.
+        # A simpler approach is to convert the data to MMH and then change this mask to 0, which is valid.
+        # TODO can I use scikit-image to improve this filtering? This is a project-wide decision!
+
+        mask = cappi_map == cappi_map[2, 2]  # This is a masked numpy array!
+
+        # While there may be uses for radar images with the use_zr flag set as false, it is important
+        # to notice this data format is actually dBZ, thus making it difficult some common operations
+        # over the image. This flag is required to be False for the Steiner filtering.
+
+        if use_zr:
+            cappi_map[-mask] = self.city.zr(cappi_map[-mask])
+            cappi_map[mask] = 0
+        else:
+            cappi_map[mask] = -999
+
+        # This will reduce the matrix to the square matrix inside the 150 km range of the weather radar.
+        # Without the remove_borders flag active, most of this class won work as planned, so it is
+        # advised not to use it for processing other than the Steiner filtering.
+
+        if remove_borders:
+            cappi_map = cappi_map[self.y_upper_left:self.y_lower_right, self.x_upper_left:self.x_lower_right]
+            cappi_map = cappi_map[::self.city.y_direction, ::self.city.x_direction]
+            cappi_map[cappi_map < 0] = 0
+
+        self.data = cappi_map
+
+
+def main():
+    """This is a completely trivial test that will only run in my machine and should be removed"""
+    # TODO create some real tests
+
+    x = CAPPI("BRU")
+    print(x.file_name)
+    x.file_name = "/home/likewise-open/LOCAL/joao.garcia/Workplace/1.INPE/Data/Radar/BR_PP/2014/01/RD_203022195_20140101000700.raw.gz"
+    x.open()
+    print(x.data[0])
+    print(x.file_name)
 
 
 if __name__ == "__main__":
-    x = CAPPI("BRU")
-    print(x.file_name)
-    x.file_name = "Jose"
-    print(x.file_name)
+    main()
