@@ -20,7 +20,7 @@ class CAPPI(object):
     """
 
     _file_name = ''
-    altitude = "3 km"  # TODO set this to either a float or tuple according to use cases
+    altitude = "3 km"
     side = 200  # Side of the square matrix
     data = None
 
@@ -121,6 +121,71 @@ class CAPPI(object):
             cappi_map[cappi_map < 0] = 0
 
         self.data = cappi_map
+
+    @staticmethod
+    def steiner_filter(data: np.ndarray):
+        """
+        Steiner Filter is based on the Steiner Method Steiner et al. (1995)  for filtering convective rainfall
+        from a radar image.
+        This method follow 3 rules, which should be applied to every point the grid:
+
+        1. Any point above 40dBZ is a Convective Point
+        2. Any point above a threshold (a) over the mean local rain (11 km radius circle) is a Convective Point
+        3. Every point around a certain radius (b) around a Convective point is also a Convective Point
+
+        (a) is the threshold
+        (b) is given by the static method convective_radius, in this class
+
+
+        :param data:
+        """
+        pass
+
+    @staticmethod
+    def _convective_radius(background_reflectivity):
+        """
+        Calculates the Convective Radius of a given convective, i.e. the radius in which all points should be
+        considered convective.
+
+        As per Steiner et al. (1995), Figure 6 (b)
+        :param background_reflectivity: the mean reflectivity over a 11 km radius, in dBZ
+        """
+
+        # Tested against a simpler equation ( x//5 - 3) this resulting formula had almost
+        # twice the performance. This is a function that will be called several times,
+        # so performance enhancements are welcome.
+
+        if background_reflectivity < 25:
+            return 1
+        elif background_reflectivity < 30:
+            return 2
+        elif background_reflectivity < 35:
+            return 3
+        elif background_reflectivity < 40:
+            return 4
+        else:
+            return 5
+
+    @staticmethod
+    def _threshold(background_reflectivity: np.float) -> np.float:
+        """
+        Calculates the threshold a certain Z must to be above the background reflectivity in order to
+        be considered a Convective Point.
+
+        As per Steiner et al. (1995), Equation 2
+        :param background_reflectivity:
+        """
+
+        # This function will be called several times (as many as there are points in a map), so it should
+        # be as optimal as possible in order to avoid performance issues.
+        # If memory is no issue, maybe a full matrix should be generated here to make use of numpy optimizations.
+
+        if background_reflectivity < 0:
+            return 10
+        elif background_reflectivity < 42.43:
+            return 10 - background_reflectivity ** 2 / 180.0
+        else:
+            return 0
 
 
 def main():
