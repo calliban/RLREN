@@ -8,8 +8,10 @@ __docformat__ = 'restructuredtext en'
 import gzip
 
 import numpy as np
+from scipy.ndimage.filters import generic_filter
 
 from sensors.cities import get_city
+from sensors import circles
 
 
 class CAPPI(object):
@@ -23,6 +25,9 @@ class CAPPI(object):
     altitude = "3 km"
     side = 200  # Side of the square matrix
     data = None
+    mask = 0
+    mask_value = 0
+    steiner_mask = None
 
     def __init__(self, city: str):
 
@@ -99,17 +104,19 @@ class CAPPI(object):
         # A simpler approach is to convert the data to MMH and then change this mask to 0, which is valid.
         # TODO can I use scikit-image to improve this filtering? This is a project-wide decision!
 
-        mask = cappi_map == cappi_map[2, 2]  # This is a masked numpy array!
+        self.mask_value = cappi_map[2, 2]
+        self.mask = cappi_map == self.mask_value  # This is a masked numpy array!
 
         # While there may be uses for radar images with the use_zr flag set as false, it is important
         # to notice this data format is actually dBZ, thus making it difficult some common operations
         # over the image. This flag is required to be False for the Steiner filtering.
 
         if use_zr:
-            cappi_map[-mask] = self.city.zr(cappi_map[-mask])
-            cappi_map[mask] = 0
-        else:
-            cappi_map[mask] = -999
+            cappi_map[-self.mask] = self.city.zr(cappi_map[-self.mask])
+            cappi_map[self.mask] = 0
+
+        # else:
+        #    cappi_map[self.mask] = -999
 
         # This will reduce the matrix to the square matrix inside the 150 km range of the weather radar.
         # Without the remove_borders flag active, most of this class won work as planned, so it is
@@ -122,49 +129,44 @@ class CAPPI(object):
 
         self.data = cappi_map
 
-    @staticmethod
-    def steiner_filter(data: np.ndarray):
+    def steiner_filter(self, data: np.ndarray):
         """
         Steiner Filter is based on the Steiner Method Steiner et al. (1995)  for filtering convective rainfall
         from a radar image.
         This method follow 3 rules, which should be applied to every point the grid:
 
-        1. Any point above 40dBZ is a Convective Point
-        2. Any point above a threshold (a) over the mean local rain (11 km radius circle) is a Convective Point
-        3. Every point around a certain radius (b) around a Convective point is also a Convective Point
+        1. Intensity: Any point above 40dBZ is a Convective Point
+        2. Peak: Any point above a threshold (a) over the mean local rain (11 km radius circle) is a Convective Point
+        3. Neighbor: Every point around a certain radius (b) around a Convective point is also a Convective Point
 
         (a) is the threshold
         (b) is given by the static method convective_radius, in this class
 
-
         :param data:
         """
-        pass
 
-    @staticmethod
-    def _convective_radius(background_reflectivity):
-        """
-        Calculates the Convective Radius of a given convective, i.e. the radius in which all points should be
-        considered convective.
+        # 1. Intensity
+        # This rule may be removed eventually after fixing 2. Peak
 
-        As per Steiner et al. (1995), Figure 6 (b)
-        :param background_reflectivity: the mean reflectivity over a 11 km radius, in dBZ
-        """
+        rule_intensity = data <= 40.0
 
-        # Tested against a simpler equation ( x//5 - 3) this resulting formula had almost
-        # twice the performance. This is a function that will be called several times,
-        # so performance enhancements are welcome.
+        # 2. Peak
+        data = data.copy()
 
-        if background_reflectivity < 25:
-            return 1
-        elif background_reflectivity < 30:
-            return 2
-        elif background_reflectivity < 35:
-            return 3
-        elif background_reflectivity < 40:
-            return 4
-        else:
-            return 5
+        # TODO improve performance here
+        rule_peak = np.ones(rule_intensity.shape, dtype=rule_intensity.dtype)
+        generic_filter(data, self._above_background, output=rule_peak, size=23)
+
+        self.steiner_mask = np.logical_and(rule_peak, rule_intensity)
+        data[self.steiner_mask] = self.mask_value
+
+        # 3. Neighbor
+
+        rule_neighbor = self._surrounding_area(data)
+        self.steiner_mask = np.logical_and(self.steiner_mask, -rule_neighbor)
+        self.steiner_mask = np.logical_or(self.steiner_mask, self.mask)
+
+        return np.ma.array(self.data, mask=self.steiner_mask)
 
     @staticmethod
     def _threshold(background_reflectivity: np.float) -> np.float:
@@ -183,9 +185,82 @@ class CAPPI(object):
         if background_reflectivity < 0:
             return 10
         elif background_reflectivity < 42.43:
-            return 10 - background_reflectivity ** 2 / 180.0
+            return 10 - (background_reflectivity ** 2) / 180.0
         else:
             return 0
+
+    def _above_background(self, data: np.ndarray) -> bool:
+        """
+        A filter function to be used with scipy.ndimage.filters.generic_filter in order to find the mean background
+        intensity for the entire matrix.
+        Returns a boolean np.ndarray with True being the values to filter out.
+
+        :param data:
+        :return:
+        """
+
+        # This function will be called about half a million times per image, and should be optimized as much as possible
+
+        point = data[len(data) // 2]
+        if point == self.mask_value:
+            return True
+
+        data[len(data) // 2] = self.mask_value
+        data = data[circles.background_line]
+        data = data[data != self.mask_value]
+
+        data = data.mean() if data.size else 0
+        return False if point - self._threshold(point) > data else True
+
+    def _surrounding_area(self, data: np.ndarray) -> np.ndarray:
+        """
+        This is a semi-optimized class for finding the surrounding area for a given intensity pixel.
+        :param data:
+        """
+
+        def _convective_radius(reflectivity):
+            """
+            Calculates the Convective Radius of a given convective, i.e. the radius in which all points should be
+            considered convective.
+
+            As per Steiner et al. (1995), Figure 6 (b)
+            :param reflectivity: the mean reflectivity over a 11 km radius, in dBZ
+            """
+
+            # Tested against a simpler equation ( x//5 - 3) this resulting formula had almost
+            # twice the performance. This is a function that will be called several times,
+            # so performance enhancements are welcome.
+
+            if reflectivity < 25:
+                return 1
+            elif reflectivity < 30:
+                return 2
+            elif reflectivity < 35:
+                return 3
+            elif reflectivity < 40:
+                return 4
+            else:
+                return 5
+
+        output = np.zeros(data.shape, dtype=np.bool)
+
+        line_max, column_max = data.shape
+        line_min = 5
+        column_min = 5
+        line_max -= 5
+        column_max -= 5
+        for (line, column), value in np.ndenumerate(data):
+
+            if value == self.mask_value:
+                continue
+            if line_min >= line or line >= line_max or column_min >= column or column >= column_max:
+                continue
+
+            radius = _convective_radius(value)
+            output[line - radius:line + radius+1, column - radius:column + radius+1] +=\
+                circles.convective_radius[radius]
+
+        return output
 
 
 def main():
@@ -193,11 +268,10 @@ def main():
     # TODO create some real tests
 
     x = CAPPI("BRU")
-    print(x.file_name)
-    x.file_name = "/home/likewise-open/LOCAL/joao.garcia/Workplace/1.INPE/Data/Radar/BR_PP/2014/01/RD_203022195_20140101000700.raw.gz"
-    x.open()
-    print(x.data[0])
-    print(x.file_name)
+    #print(x.file_name)
+    x.file_name = "/home/likewise-open/LOCAL/joao.garcia/Workplace/1.INPE/Data/Radar/BR_PP/2014/01/RD_203022195_20140112213700.raw.gz"
+    x.open(remove_borders=False, use_zr=False)
+    x._surrounding_area(x.data)
 
 
 if __name__ == "__main__":
