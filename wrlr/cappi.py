@@ -185,30 +185,6 @@ class CAPPI(object):
 
         return np.ma.array(self.data, mask=self.steiner_mask)
 
-    @staticmethod
-    def _threshold(background_reflectivity: np.float) -> np.float:
-        """
-        Calculates the threshold a certain Z must to be above the background
-        reflectivity in order to
-        be considered a Convective Point.
-
-        As per Steiner et al. (1995), Equation 2
-        :param background_reflectivity:
-        """
-
-        # This function will be called several times (as many as there are
-        # points in a map), so it should be as optimal as possible in order to
-        # avoid performance issues.
-        # If memory is no issue, maybe a full matrix should be generated here to
-        # make use of numpy optimizations.
-
-        if background_reflectivity < 0:
-            return 10
-        elif background_reflectivity < 42.43:
-            return 10 - (background_reflectivity ** 2) / 180.0
-        else:
-            return 0
-
     def _above_background(self, data: np.ndarray) -> bool:
         """
         A filter function to be used with scipy.ndimage.filters.generic_filter
@@ -233,31 +209,6 @@ class CAPPI(object):
 
         data = data.mean() if data.size else 0
         return False if point - self._threshold(point) > data else True
-
-    @staticmethod
-    def _convective_radius(reflectivity):
-        """
-        Calculates the Convective Radius of a given convective, i.e. the
-        radius in which all points should be considered convective.
-
-        As per Steiner et al. (1995), Figure 6 (b)
-        :param reflectivity: mean reflectivity over a 11 km radius in dBZ
-        """
-
-        # Tested against a simpler equation ( x//5 - 3) this resulting  formula
-        # had almost twice the performance. This is a function that  will be
-        # called several times, so performance enhancements are welcome.
-
-        if reflectivity < 25:
-            return 1
-        elif reflectivity < 30:
-            return 2
-        elif reflectivity < 35:
-            return 3
-        elif reflectivity < 40:
-            return 4
-        else:
-            return 5
 
     def _surrounding_area(self, data: np.ndarray) -> np.ndarray:
         """
@@ -286,4 +237,98 @@ class CAPPI(object):
             output[line - radius:line + radius+1, column - radius:column + radius+1] +=\
                 circles.convective_radius[radius]
 
+        return output
+
+    @staticmethod
+    def _convective_radius(reflectivity):
+        """
+        Calculates the Convective Radius of a given convective, i.e. the
+        radius in which all points should be considered convective.
+
+        As per Steiner et al. (1995), Figure 6 (b)
+        :param reflectivity: mean reflectivity over a 11 km radius in dBZ
+        """
+
+        # Tested against a simpler equation ( x//5 - 3) this resulting  formula
+        # had almost twice the performance. This is a function that  will be
+        # called several times, so performance enhancements are welcome.
+
+        if reflectivity < 25:
+            return 1
+        elif reflectivity < 30:
+            return 2
+        elif reflectivity < 35:
+            return 3
+        elif reflectivity < 40:
+            return 4
+        else:
+            return 5
+
+    @staticmethod
+    def _threshold(background_reflectivity: np.float) -> np.float:
+        """
+        Calculates the threshold a certain Z must to be above the background
+        reflectivity in order to
+        be considered a Convective Point.
+
+        As per Steiner et al. (1995), Equation 2
+        :param background_reflectivity:
+        """
+
+        # This function will be called several times (as many as there are
+        # points in a map), so it should be as optimal as possible in order to
+        # avoid performance issues.
+        # If memory is no issue, maybe a full matrix should be generated here to
+        # make use of numpy optimizations.
+
+        if background_reflectivity < 0:
+            return 10
+        elif background_reflectivity < 42.43:
+            return 10 - (background_reflectivity ** 2) / 180.0
+        else:
+            return 0
+
+    def grid(self, data: np.ndarray, grid_size: int=50, shift: float=25):
+        pass
+
+    @staticmethod
+    def split(data: np.ndarray, vertical: int, horizontal: int):
+        """
+        Splits the data ndarray into vertical x horizontal smaller arrays
+
+        :param data:
+        :param vertical:
+        :param horizontal:
+        :return:
+        """
+        return np.concatenate(np.array([np.vsplit(window, vertical) for window
+                                        in np.hsplit(data, horizontal)]))
+
+    @staticmethod
+    def slice(data, windows):
+        """
+        Creates several sub-matrices
+
+        :param data:
+        :param windows:
+        :return:
+        """
+        # TODO enhance documentation
+
+        window_size = 100 // windows
+
+        odd_adjust = 1 if window_size % 5 else 0
+
+        v_split = CAPPI.split(data[window_size+odd_adjust:-window_size, :],
+                              vertical=windows-1, horizontal=windows)
+        h_split = CAPPI.split(data[:, window_size+odd_adjust:-window_size],
+                              vertical=windows, horizontal=windows-1)
+        vh_split = CAPPI.split(data[window_size+odd_adjust:-window_size,
+                               window_size+odd_adjust:-window_size],
+                               vertical=windows-1, horizontal=windows-1)
+        full_split = CAPPI.split(data, vertical=windows, horizontal=windows)
+
+        output = np.append(v_split, h_split, 0)
+        output = np.append(output, vh_split, 0)
+        output = np.append(output, full_split, 0)
         return output
