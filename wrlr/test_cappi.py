@@ -18,5 +18,7 @@ def data():
 
 def test_read(data):
     data.open()
-    assert (200, 200) == data.data.size
+    assert (200, 200) == data.data.shape
 
+    data.open(remove_borders=False)
+    assert (667, 1000) == data.data.shape
