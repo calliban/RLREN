@@ -287,19 +287,3 @@ class CAPPI(object):
                 circles.convective_radius[radius]
 
         return output
-
-
-def main():
-    """This is a completely trivial test that will only run in my machine and
-    should be removed"""
-    # TODO create some real tests
-
-    x = CAPPI("BRU")
-    #print(x.file_name)
-    x.file_name = "/home/likewise-open/LOCAL/joao.garcia/Workplace/1.INPE/Data/Radar/BR_PP/2014/01/RD_203022195_20140112213700.raw.gz"
-    x.open(remove_borders=False, use_zr=False)
-    x._surrounding_area(x.data)
-
-
-if __name__ == "__main__":
-    main()
