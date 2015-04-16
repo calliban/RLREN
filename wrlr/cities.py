@@ -60,7 +60,7 @@ cities = dict(BRU=City(file_name='BRU',
                        date0="2014-01-01 00:07:00",
                        date1="2014-11-30 06:59:00",
                        folder="BR_PP",
-                       zr=lambda dBZ: piecewise(dBZ, [dBZ < -900, dBZ >= -900],
+                       zr=lambda dbz: piecewise(dbz, [dbz < -900, dbz >= -900],
                                                 [0, lambda z: power(
                                                     (10 ** (z / 10.0)) / 32.0,
                                                     1 / 1.65)])),
@@ -79,10 +79,10 @@ cities = dict(BRU=City(file_name='BRU',
                       date0="2014-01-01 00:01:00",
                       date1="2014-11-30 23:50:00",
                       folder="PC",
-                      zr=lambda dBZ: piecewise(dBZ, [dBZ < -900,
-                                                     (dBZ >= -900) & (
-                                                     dBZ <= 35.0),
-                                                     (dBZ > 35.0)],
+                      zr=lambda dbz: piecewise(dbz, [dbz < -900,
+                                                     (dbz >= -900) &
+                                                     (dbz <= 35.0),
+                                                     (dbz > 35.0)],
                                                [0, lambda z: power(
                                                    (10 ** (z / 10.0)) / 300.0,
                                                    1 / 1.6),
@@ -104,10 +104,10 @@ cities = dict(BRU=City(file_name='BRU',
                       date0="2014-01-01 00:11:00",
                       date1="2014-11-30 23:50:00",
                       folder="SR",
-                      zr=lambda dBZ: piecewise(dBZ, [dBZ < -900,
-                                                     (dBZ >= -900) & (
-                                                     dBZ <= 35.0),
-                                                     (dBZ > 35.0)],
+                      zr=lambda dbz: piecewise(dbz, [dbz < -900,
+                                                     (dbz >= -900) &
+                                                     (dbz <= 35.0),
+                                                     (dbz > 35.0)],
                                                [0, lambda z: power(
                                                    (10 ** (z / 10.0)) / 300.0,
                                                    1 / 1.6),

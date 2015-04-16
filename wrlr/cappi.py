@@ -5,6 +5,7 @@ This Package deals with CAPPI files containing Radar data.
 
 __docformat__ = 'restructuredtext en'
 
+import datetime
 import gzip
 
 import numpy as np
@@ -23,10 +24,12 @@ class CAPPI(object):
 
     _file_name = ''
     altitude = "3 km"
-    side = 200  # Side of the square matrix
     data = None
     mask = 0
     mask_value = 0
+    date = None
+    side = 200  # Side of the square matrix
+    slices = None
     steiner_mask = None
 
     def __init__(self, city: str):
@@ -47,32 +50,6 @@ class CAPPI(object):
         self.y_lower_right, self.x_lower_right = self.city.box_lr
         self.data_size = self.x_size * self.y_size * 4  # Binary size for float
 
-    def remap(self, latitude: float, longitude: float) -> list:
-        """
-        Remap a tuple (latitude, longitude) to a mapping matrix
-        Return (i, j) coordinates
-
-        :param latitude: The latitude of the point
-        :param longitude: The Longitude of the point
-        :return: (i, j)
-        """
-
-        if self.city.lat_min <= latitude < self.city.lat_max:
-            lat_window = (self.city.lat_max - self.city.lat_min)
-            normal_lat = (latitude - self.city.lat_min) / lat_window
-            new_latitude = round(normal_lat * self.city.shape[0])
-        else:
-            new_latitude = -1
-
-        if self.city.lon_min <= longitude < self.city.lon_max:
-            lon_window = (self.city.lon_max - self.city.lon_min)
-            normal_lon = (longitude - self.city.lon_min) / lon_window
-            new_longitude = round(normal_lon * self.city.shape[1])
-        else:
-            new_longitude = -1
-
-        return new_latitude, new_longitude
-
     @property
     def file_name(self) -> str:
         """Returns the value of file_name
@@ -86,6 +63,10 @@ class CAPPI(object):
         :param file_name:
         """
         self._file_name = file_name
+
+        date = file_name.split('_')[-1]
+        date = date.split('.')[0]
+        self.date = datetime.datetime.strptime(date, "%Y%m%d%H%M%S")
 
     def open(self, file_name: str='', remove_borders: bool=True,
              use_zr: bool=True) -> np.ndarray:
@@ -292,43 +273,53 @@ class CAPPI(object):
         pass
 
     @staticmethod
-    def split(data: np.ndarray, vertical: int, horizontal: int):
+    def _split(data: np.ndarray, lines: int, columns: int):
         """
-        Splits the data ndarray into vertical x horizontal smaller arrays
+        Splits the data ndarray into lines x columns smaller arrays
 
         :param data:
-        :param vertical:
-        :param horizontal:
+        :param lines:
+        :param columns:
         :return:
         """
-        return np.concatenate(np.array([np.vsplit(window, vertical) for window
-                                        in np.hsplit(data, horizontal)]))
+        return np.concatenate(np.array([np.vsplit(window, lines) for window
+                                        in np.hsplit(data, columns)]))
 
-    @staticmethod
-    def slice(data, windows):
+    def _slice(self, windows):
         """
         Creates several sub-matrices
 
-        :param data:
         :param windows:
         :return:
         """
-        # TODO enhance documentation
 
         window_size = 100 // windows
-
         odd_adjust = 1 if window_size % 5 else 0
 
-        v_split = CAPPI.split(data[window_size+odd_adjust:-window_size, :],
-                              vertical=windows-1, horizontal=windows)
-        h_split = CAPPI.split(data[:, window_size+odd_adjust:-window_size],
-                              vertical=windows, horizontal=windows-1)
-        vh_split = CAPPI.split(data[window_size+odd_adjust:-window_size,
-                               window_size+odd_adjust:-window_size],
-                               vertical=windows-1, horizontal=windows-1)
-        full_split = CAPPI.split(data, vertical=windows, horizontal=windows)
+        full_split = CAPPI._split(self.data, lines=windows, columns=windows)
 
-        output = np.append(v_split, h_split, 0)
-        output = np.append(output, vh_split, 0)
-        output = np.append(output, full_split, 0)
-        return output
+        # Split Lines
+
+        l_split = CAPPI._split(
+            self.data[window_size+odd_adjust:-window_size, :],
+            lines=windows-1, columns=windows)
+
+        # Split Columns
+
+        c_split = CAPPI._split(
+            self.data[:, window_size+odd_adjust:-window_size],
+            lines=windows, columns=windows-1)
+
+        # Split Lines and Columns
+
+        lc_split = CAPPI._split(
+            self.data[window_size+odd_adjust:-window_size,
+                      window_size+odd_adjust:-window_size],
+            lines=windows-1, columns=windows-1)
+
+        # Merge all splits into one
+
+        output = np.append(full_split, l_split, 0)
+        output = np.append(output, c_split, 0)
+        output = np.append(output, lc_split, 0)
+        self.slices = output

@@ -22,3 +22,8 @@ def test_read(data):
 
     data.open(remove_borders=False)
     assert (667, 1000) == data.data.shape
+
+def test_slice(data):
+    data.open()
+    data._slice(4)
+    assert len(data.slices) == 49
