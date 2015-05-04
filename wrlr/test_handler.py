@@ -13,3 +13,8 @@ def data():
 
 def test_init(data):
     assert len(data.files) > 0
+
+
+def test_dates(data):
+    data.generate_dates()
+    assert data.dates[0].strftime("%Y%m%d%H%M%S") in data.files[0]

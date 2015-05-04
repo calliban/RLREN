@@ -9,6 +9,7 @@ import os
 import cappi
 from datetime import datetime as dt
 
+
 class Handler(object):
     """
     Handles file-lists and can be used as an iterator in order to get all files
