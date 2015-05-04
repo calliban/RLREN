@@ -179,4 +179,3 @@ class EarthNetworks(object):
         # Merge all splits into one
 
         self.slices = full_split + l_split + c_split + lc_split
-
