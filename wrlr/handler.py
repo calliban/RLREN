@@ -7,14 +7,15 @@ __docformat__ = 'restructuredtext en'
 import os
 
 import cappi
-
+from datetime import datetime as dt
 
 class Handler(object):
     """
     Handles file-lists and can be used as an iterator in order to get all files
-    available in a certain path.
+     available in a certain path.
     """
 
+    dates = None
     files = None
 
     def __init__(self, path: str):
@@ -23,12 +24,12 @@ class Handler(object):
 
     def _list_files(self, path: str):
         """
-        Lists all non-invisible (i.e. not starting with a dot) files in a
-        directory and all its subdirectories, and stores them in alphabetical
-        order, which is the same as the date in the name of such files for the
-        scope of this work
+        Lists all visible (i.e. not starting with a dot) files in a directory
+         and all its subdirectories, and stores them in alphabetical order,
+         which is the same as the date in the name of such files for the scope
+         of this work
 
-        :param path:
+        :param path: Root path of the files to be handled
         """
 
         output = []
@@ -39,3 +40,17 @@ class Handler(object):
                     output.append(file_name)
 
         self.files = sorted(output)
+
+    def generate_dates(self):
+        """
+        This method will try to obtain the date from a file name, which is
+         useful specially for radar files.
+        """
+
+        dates = []
+        for filename in self.files:
+            filename = (filename.split('_')[-1]).split('.')[0]  # Date portion
+            date = dt.strptime(filename, "%Y%m%d%H%M%S")
+            dates.append(date)
+
+        self.dates = dates
