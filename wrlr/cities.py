@@ -1,4 +1,7 @@
 # coding: utf-8
+"""
+Includes a named tuple containing information for all available cities.
+"""
 __docformat__ = 'restructuredtext en'
 
 import collections
