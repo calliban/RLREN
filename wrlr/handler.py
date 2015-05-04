@@ -55,3 +55,10 @@ class Handler(object):
             dates.append(date)
 
         self.dates = dates
+
+    def __next__(self):
+        """
+        Iterate chronologically given a time interval
+        :return:
+        """
+        pass
