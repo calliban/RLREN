@@ -71,9 +71,9 @@ class CAPPI(object):
     def open(self, file_name: str='', remove_borders: bool=True,
              use_zr: bool=True) -> np.ndarray:
         """
-        Open a single radar file given it's file_name".
-        The remove_borders image may be obtained using the "remove_borders"
-        parameter.
+        Open a single radar file given it's file_name.
+         The remove_borders image may be obtained using the ``remove_borders``
+         parameter.
 
         :param file_name: The filename for a radar file
         :param remove_borders: Define whether to use the inner-radar matrix
@@ -127,9 +127,10 @@ class CAPPI(object):
     def steiner_filter(self, data: np.ndarray):
         """
         Steiner Filter is based on the Steiner Method Steiner et al. (1995) for
-        filtering convective rainfall from a radar image.
+         filtering convective rainfall from a radar image.
+
         This method follow 3 rules, which should be applied to every point the
-        grid:
+         grid:
 
         1. Intensity: Any point above 40dBZ is a Convective Point
         2. Peak: Any point above a threshold (a) over the mean local rain
@@ -169,8 +170,8 @@ class CAPPI(object):
     def _above_background(self, data: np.ndarray) -> bool:
         """
         A filter function to be used with scipy.ndimage.filters.generic_filter
-        in order to find the mean background
-        intensity for the entire matrix.
+         in order to find the mean background intensity for the entire matrix.
+
         Returns a boolean np.ndarray with True being the values to filter out.
 
         :param data:
@@ -194,7 +195,7 @@ class CAPPI(object):
     def _surrounding_area(self, data: np.ndarray) -> np.ndarray:
         """
         This is a semi-optimized class for finding the surrounding area for a
-        given intensity pixel.
+         given intensity pixel.
         :param data:
         """
 
@@ -223,8 +224,8 @@ class CAPPI(object):
     @staticmethod
     def _convective_radius(reflectivity):
         """
-        Calculates the Convective Radius of a given convective, i.e. the
-        radius in which all points should be considered convective.
+        Calculates the Convective Radius of a given convective, i.e. the radius
+         in which all points should be considered convective.
 
         As per Steiner et al. (1995), Figure 6 (b)
         :param reflectivity: mean reflectivity over a 11 km radius in dBZ
@@ -249,8 +250,7 @@ class CAPPI(object):
     def _threshold(background_reflectivity: np.float) -> np.float:
         """
         Calculates the threshold a certain Z must to be above the background
-        reflectivity in order to
-        be considered a Convective Point.
+         reflectivity in order to be considered a Convective Point.
 
         As per Steiner et al. (1995), Equation 2
         :param background_reflectivity:
@@ -268,9 +268,6 @@ class CAPPI(object):
             return 10 - (background_reflectivity ** 2) / 180.0
         else:
             return 0
-
-    def grid(self, data: np.ndarray, grid_size: int=50, shift: float=25):
-        pass
 
     @staticmethod
     def _split(data: np.ndarray, lines: int, columns: int):

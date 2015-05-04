@@ -42,7 +42,6 @@ class Cluster():
         # Reduce to valid intervals only
         self.data = data
 
-    @profile
     def get_cluster(self, index):
         """
         Create the cluster based on a single lightning occurrence
