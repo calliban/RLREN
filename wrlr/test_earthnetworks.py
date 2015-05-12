@@ -1,9 +1,14 @@
 # coding: utf-8
+"""
+Test for the EarthNetworks class and related methods.
+"""
 __docformat__ = 'restructuredtext en'
 
 import pytest
+import cities
 
-from wrlr import earthnetworks
+import earthnetworks
+
 
 @pytest.fixture
 def data():
@@ -19,7 +24,7 @@ def test_city_validity(data):
     Tests if city is being read correctly
     :param data: fixture
     """
-    assert earthnetworks.cities.cities['BRU'].file_name == 'BRU'
+    assert cities.cities['BRU'].file_name == 'BRU'
 
 
 def test_open(data):

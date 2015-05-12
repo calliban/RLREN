@@ -1,13 +1,12 @@
 # coding: utf-8
 """
-Test for the CAPPI class and related methods
+Test for the CAPPI class and related methods.
 """
 __docformat__ = 'restructuredtext en'
 
 import pytest
 
-from wrlr import cappi
-
+import cappi
 
 @pytest.fixture
 def data():
@@ -25,10 +24,10 @@ def test_read(data):
     :param data: fixture
     """
     data.open()
-    assert (200, 200) == data.data.shape
-
-    data.open(remove_borders=False)
     assert (667, 1000) == data.data.shape
+
+    data.remove_borders()
+    assert (200, 200) == data.data.shape
 
 
 def test_slice(data):
@@ -37,5 +36,6 @@ def test_slice(data):
     :param data: fixture
     """
     data.open()
+    data.remove_borders()
     data._slice(4)
     assert len(data.slices) == 49

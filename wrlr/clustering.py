@@ -1,6 +1,6 @@
 # coding: utf-8
 """
-This is a clustering class
+This is a clustering class.
 """
 __docformat__ = 'restructuredtext en'
 

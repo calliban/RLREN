@@ -1,6 +1,6 @@
 # coding: utf-8
 """
-This is a file containing several 1 and 2-dimension fi
+This is a file containing several 1 and 2-dimension filters
 """
 __docformat__ = 'restructuredtext en'
 import numpy as np

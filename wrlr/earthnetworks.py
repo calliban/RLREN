@@ -1,6 +1,6 @@
 # coding: utf-8
 """
-This file deals with Earth Networks lightning data format
+This file deals with Earth Networks lightning data format/
 """
 
 __docformat__ = 'restructuredtext en'
@@ -8,7 +8,7 @@ __docformat__ = 'restructuredtext en'
 import numpy as np
 import pandas as pd
 
-from wrlr import cities
+import cities
 
 
 class EarthNetworks(object):

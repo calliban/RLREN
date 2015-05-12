@@ -1,5 +1,6 @@
 # coding: utf-8
-"""CAPPI - Constant Altitude Plan Position Indicator
+"""
+CAPPI - Constant Altitude Plan Position Indicator
 This Package deals with CAPPI files containing Radar data.
 """
 
@@ -24,13 +25,13 @@ class CAPPI(object):
 
     _file_name = ''
     altitude = "3 km"
-    data = None
-    mask = 0
+    data = None  # type: np.ndarray
+    mask = 0  # type: np.ndarray
     mask_value = 0
     date = None
     side = 200  # Side of the square matrix
     slices = None
-    steiner_mask = None
+    steiner_mask = None  # type: np.ndarray
 
     def __init__(self, city: str):
         self.city = cities.cities[city]
@@ -68,16 +69,28 @@ class CAPPI(object):
         date = date.split('.')[0]
         self.date = datetime.datetime.strptime(date, "%Y%m%d%H%M%S")
 
-    def open(self, file_name: str='', remove_borders: bool=True,
-             use_zr: bool=True) -> np.ndarray:
+    def to_zr(self):
+        """
+        Remove pixels outside the limits defined by the chosen city
+        """
+        self.data[-self.mask] = self.city.zr(self.data[-self.mask])
+        self.data[self.mask] = 0
+
+    def remove_borders(self):
+        """
+        Convert dBZ pixel values to mmh by using a ZR relationship
+        """
+        self.data = self.data[self.y_upper_left:self.y_lower_right,
+                              self.x_upper_left:self.x_lower_right]
+        self.data[self.data < 0] = 0
+
+    def open(self, file_name: str='') -> np.ndarray:
         """
         Open a single radar file given it's file_name.
-         The remove_borders image may be obtained using the ``remove_borders``
-         parameter.
+
+
 
         :param file_name: The filename for a radar file
-        :param remove_borders: Define whether to use the inner-radar matrix
-        :param use_zr: Use Z-R (mmh-1)  data if true, or dBZ ir false
         :return cappi_map: The matrix map
         """
 
@@ -98,33 +111,10 @@ class CAPPI(object):
         # invalid dBZ value.
 
         self.mask_value = cappi_map[2, 2]
-        self.mask = cappi_map == self.mask_value  # This is a masked numpy array
+        self.data = cappi_map[::self.city.y_direction, ::self.city.x_direction]
+        self.mask = self.data == self.mask_value  # This is a masked numpy array
 
-        # While there may be uses for radar images with the use_zr flag set as
-        # false, it is important to notice this data format is actually dBZ,
-        # thus making it difficult some common operations over the image. This
-        # flag is required to be False for the Steiner filtering.
-
-        if use_zr:
-            cappi_map[-self.mask] = self.city.zr(cappi_map[-self.mask])
-            cappi_map[self.mask] = 0
-
-        # This will reduce the matrix to the square matrix inside the 150 km
-        # range of the weather radar.
-        # Without the remove_borders flag active, most of this class won work as
-        # planned, so it is advised not to use it for processing other than the
-        # Steiner filtering.
-
-        if remove_borders:
-            cappi_map = cappi_map[self.y_upper_left:self.y_lower_right,
-                                  self.x_upper_left:self.x_lower_right]
-            cappi_map = cappi_map[::self.city.y_direction,
-                                  ::self.city.x_direction]
-            cappi_map[cappi_map < 0] = 0
-
-        self.data = cappi_map
-
-    def steiner_filter(self, data: np.ndarray):
+    def steiner_filter(self):
         """
         Steiner Filter is based on the Steiner Method Steiner et al. (1995) for
          filtering convective rainfall from a radar image.
@@ -141,17 +131,19 @@ class CAPPI(object):
         (a) is the threshold
         (b) is given by the static method convective_radius, in this class
 
-        :param data:
         """
+
+        data = np.copy(self.data)
+
+        # On a numpy mask, ``True`` means masked, while ``False`` means unmasked
+        # thus all masks should be ``True`` where pixels should be removed.
 
         # 1. Intensity
         # This rule may be removed eventually after fixing 2. Peak
 
-        rule_intensity = data <= 40.0
+        rule_intensity = data < 40.0  # type: np.ndarray
 
         # 2. Peak
-        data = data.copy()
-
         # TODO improve performance here
         rule_peak = np.ones(rule_intensity.shape, dtype=rule_intensity.dtype)
         generic_filter(data, self._above_background, output=rule_peak, size=23)
@@ -160,12 +152,15 @@ class CAPPI(object):
         data[self.steiner_mask] = self.mask_value
 
         # 3. Neighbor
+        # Probably shouldn't need to make a logical and with the mask, as it
+        # should be at least equal to it.
 
-        rule_neighbor = self._surrounding_area(data)
-        self.steiner_mask = np.logical_and(self.steiner_mask, -rule_neighbor)
+        rule_neighbor = -self._surrounding_area(data)
+        self.steiner_mask = np.logical_and(self.steiner_mask, rule_neighbor)
         self.steiner_mask = np.logical_or(self.steiner_mask, self.mask)
 
-        return np.ma.array(self.data, mask=self.steiner_mask)
+
+        # return np.ma.array(self.data, mask=self.steiner_mask)
 
     def _above_background(self, data: np.ndarray) -> bool:
         """
