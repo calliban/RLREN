@@ -5,10 +5,14 @@ This file deals with Earth Networks lightning data format/
 
 __docformat__ = 'restructuredtext en'
 
+from collections import namedtuple
+
 import numpy as np
 import pandas as pd
 
 import cities
+
+Delimiter = namedtuple("Delimiter", ['lat_max', 'lat_min', 'lon_max', 'lon_min', 'time_max', 'time_min'])
 
 
 class EarthNetworks(object):
@@ -18,6 +22,7 @@ class EarthNetworks(object):
 
     side = 200
     data = None
+    figure = None
     slices = None
 
     def __init__(self, city: str):
@@ -101,6 +106,36 @@ class EarthNetworks(object):
                     (data['longitude'] <= self.city.lon_max)]
 
         self.data = data
+
+    def to_matrix(self, time0, time1, flash_type='CG'):
+        """
+        Converts a pandas DataFrame to a matrix mapped to the city
+
+        :param time0: Starting Time
+        :param time1: Ending Time
+        :param flash_type: either 'CG' or 'IC'
+        :return:
+        """
+        data = self.data[self.data.tipo == flash_type]
+
+        data = data[data.datahora <= time1]
+        data = data[data.datahora >= time0]
+
+        data.latitude -= self.city.lat_min
+        data.latitude /= self.city.lat_max - self.city.lat_min
+        data.latitude *= self.side
+        data = data[data.latitude < self.side]
+
+        data.longitude -= self.city.lon_min
+        data.longitude /= self.city.lon_max - self.city.lon_min
+        data.longitude *= self.side
+        data = data[data.longitude < self.side]
+
+        figure = np.zeros(self.city.shape)
+        figure[data.latitude, data.longitude] += data.multiplicidade
+        del data
+
+        self.figure = figure
 
     @staticmethod
     def _split(data: np.ndarray, lines: int, columns: int):
