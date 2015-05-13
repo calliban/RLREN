@@ -71,20 +71,31 @@ class CAPPI(object):
 
     def to_zr(self):
         """
-        Remove pixels outside the limits defined by the chosen city
+        Convert dBZ pixel values to mmh by using a ZR relationship
         """
         self.data[-self.mask] = self.city.zr(self.data[-self.mask])
         self.data[self.mask] = 0
+        self.data[self.data < 0] = 0
 
     def remove_borders(self):
         """
-        Convert dBZ pixel values to mmh by using a ZR relationship
+        Remove pixels outside the limits defined by the chosen city
         """
         self.data = self.data[self.y_upper_left:self.y_lower_right,
                               self.x_upper_left:self.x_lower_right]
-        self.data[self.data < 0] = 0
 
-    def open(self, file_name: str='') -> np.ndarray:
+        if isinstance(self.steiner_mask, np.ndarray):
+            self.steiner_mask = \
+                self.steiner_mask[self.y_upper_left:self.y_lower_right,
+                                  self.x_upper_left:self.x_lower_right]
+
+    def apply_filter(self):
+        """
+        Apply the previously obtained steiner filter to the data.
+        """
+        self.data[self.steiner_mask] = 0
+
+    def open(self, file_name: str=''):
         """
         Open a single radar file given it's file_name.
 
@@ -112,7 +123,16 @@ class CAPPI(object):
 
         self.mask_value = cappi_map[2, 2]
         self.data = cappi_map[::self.city.y_direction, ::self.city.x_direction]
+        self.data[np.isnan(self.data)] = self.mask_value
+        self.data[self.data < -15.0] = self.mask_value
         self.mask = self.data == self.mask_value  # This is a masked numpy array
+
+    def open_steiner(self, file_name: str=''):
+        if file_name == '':
+            file_name = self._file_name.replace("Radar", "Steiner")
+            file_name = file_name.replace("raw.gz", "npy.gz")
+
+        self.steiner_mask = np.loadtxt(file_name).astype("bool")
 
     def steiner_filter(self):
         """
@@ -288,23 +308,23 @@ class CAPPI(object):
         window_size = 100 // windows
         odd_adjust = 1 if window_size % 5 else 0
 
-        full_split = CAPPI._split(self.data, lines=windows, columns=windows)
+        full_split = self._split(self.data, lines=windows, columns=windows)
 
         # Split Lines
 
-        l_split = CAPPI._split(
+        l_split = self._split(
             self.data[window_size+odd_adjust:-window_size, :],
             lines=windows-1, columns=windows)
 
         # Split Columns
 
-        c_split = CAPPI._split(
+        c_split = self._split(
             self.data[:, window_size+odd_adjust:-window_size],
             lines=windows, columns=windows-1)
 
         # Split Lines and Columns
 
-        lc_split = CAPPI._split(
+        lc_split = self._split(
             self.data[window_size+odd_adjust:-window_size,
                       window_size+odd_adjust:-window_size],
             lines=windows-1, columns=windows-1)
