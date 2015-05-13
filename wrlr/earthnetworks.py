@@ -147,70 +147,44 @@ class EarthNetworks(object):
         :param columns:
         :return:
         """
-        tmp = np.concatenate(np.array([np.vsplit(window, lines) for window
-                                       in np.hsplit(data, columns)]))
-        return [(i[0, 0], i[-1, -1]) for i in tmp]
+        return np.concatenate(np.array([np.vsplit(window, lines) for window
+                                        in np.hsplit(data, columns)]))
 
-    def _slice(self, windows):
+    def _slice(self, windows: int):
         """
-        Creates Lat-Lon constrain boxes
+        Creates several sub-matrices
 
+        :param windows:
         :return:
         """
 
         window_size = 100 // windows
         odd_adjust = 1 if window_size % 5 else 0
 
-        # Split without displacement
+        full_split = self._split(self.figure, lines=windows, columns=windows)
 
-        tmp_lat = self._split(self.latitude, lines=windows, columns=windows)
-        tmp_lon = self._split(self.longitude, lines=windows, columns=windows)
+        # Split Lines
 
-        full_split = [[[lat_min, lon_min], [lat_max, lon_max]] for
-                      (lat_min, lat_max), (lon_min, lon_max)
-                      in zip(tmp_lat, tmp_lon)]
+        l_split = self._split(
+            self.figure[window_size+odd_adjust:-window_size, :],
+            lines=windows-1, columns=windows)
 
-        # Split with line displacement
+        # Split Columns
 
-        tmp_lat = self._split(
-            self.latitude[window_size + odd_adjust:-window_size, :],
-            lines=windows - 1, columns=windows)
-        tmp_lon = self._split(
-            self.longitude[window_size + odd_adjust:-window_size, :],
-            lines=windows - 1, columns=windows)
+        c_split = self._split(
+            self.figure[:, window_size+odd_adjust:-window_size],
+            lines=windows, columns=windows-1)
 
-        l_split = [[[lat_min, lon_min], [lat_max, lon_max]] for
-                   (lat_min, lat_max), (lon_min, lon_max)
-                   in zip(tmp_lat, tmp_lon)]
+        # Split Lines and Columns
 
-        # Split with column displacement
-
-        tmp_lat = self._split(
-            self.latitude[:, window_size + odd_adjust:-window_size],
-            lines=windows, columns=windows - 1)
-        tmp_lon = self._split(
-            self.longitude[:, window_size + odd_adjust:-window_size],
-            lines=windows, columns=windows - 1)
-
-        c_split = [[[lat_min, lon_min], [lat_max, lon_max]] for
-                   (lat_min, lat_max), (lon_min, lon_max)
-                   in zip(tmp_lat, tmp_lon)]
-
-        # Split with line and column displacement
-
-        tmp_lat = self._split(
-            self.latitude[window_size + odd_adjust:-window_size,
-                          window_size + odd_adjust:-window_size],
-            lines=windows - 1, columns=windows - 1)
-        tmp_lon = self._split(
-            self.longitude[window_size + odd_adjust:-window_size,
-                           window_size + odd_adjust:-window_size],
-            lines=windows - 1, columns=windows - 1)
-
-        lc_split = [[[lat_min, lon_min], [lat_max, lon_max]] for
-                    (lat_min, lat_max), (lon_min, lon_max)
-                    in zip(tmp_lat, tmp_lon)]
+        lc_split = self._split(
+            self.figure[window_size+odd_adjust:-window_size,
+                      window_size+odd_adjust:-window_size],
+            lines=windows-1, columns=windows-1)
 
         # Merge all splits into one
 
-        self.slices = full_split + l_split + c_split + lc_split
+        output = np.append(full_split, l_split, 0)
+        output = np.append(output, c_split, 0)
+        output = np.append(output, lc_split, 0)
+        self.slices = output
