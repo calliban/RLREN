@@ -116,6 +116,7 @@ class EarthNetworks(object):
         :param flash_type: either 'CG' or 'IC'
         :return:
         """
+
         data = self.data[self.data.tipo == flash_type]
 
         data = data[data.datahora <= time1]
@@ -131,7 +132,7 @@ class EarthNetworks(object):
         data.longitude *= self.side
         data = data[data.longitude < self.side]
 
-        figure = np.zeros(self.city.shape)
+        figure = np.zeros((self.side, self.side))
         figure[data.latitude, data.longitude] += data.multiplicidade
         del data
 

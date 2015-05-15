@@ -22,15 +22,19 @@ def main():
 
     rad = CAPPI(city)
     flash = EarthNetworks(city)
-    flash.open(flash_path)
+    #flash.open(flash_path)
     pulse = EarthNetworks(city)
-    pulse.open(pulse_path)
+    #pulse.open(pulse_path)
 
     handler = Handler(radar_path)
     handler.list_files()
     handler.list_dates()
     handler.generate_date_tuples("30m", "450s")
 
+    for h in iter(handler):
+        if h.files:
+            print(h)
+            break
 
 if __name__ == '__main__':
     main()
