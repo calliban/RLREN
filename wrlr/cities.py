@@ -84,8 +84,8 @@ cities = dict(BRU=City(file_name='BRU',
                       folder="PC",
                       zr=lambda dbz: piecewise(dbz, [dbz < -15,
                                                      (dbz >= -15) &
-                                                     (dbz <= 35.0),
-                                                     (dbz > 35.0)],
+                                                     (dbz <= 36.0),
+                                                     (dbz > 36.0)],
                                                [0, lambda z: power(
                                                    (10 ** (z / 10.0)) / 300.0,
                                                    1 / 1.6),
@@ -109,8 +109,8 @@ cities = dict(BRU=City(file_name='BRU',
                       folder="SR",
                       zr=lambda dbz: piecewise(dbz, [dbz < -15,
                                                      (dbz >= -15) &
-                                                     (dbz <= 35.0),
-                                                     (dbz > 35.0)],
+                                                     (dbz <= 36.0),
+                                                     (dbz > 36.0)],
                                                [0, lambda z: power(
                                                    (10 ** (z / 10.0)) / 300.0,
                                                    1 / 1.6),
